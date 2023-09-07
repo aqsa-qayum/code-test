@@ -7,7 +7,9 @@ use DTApi\Http\Requests;
 use DTApi\Models\Distance;
 use Illuminate\Http\Request;
 use DTApi\Repository\BookingRepository;
-
+use DTApi\Http\Requests\BookingStoreRequest;
+use DTApi\Services\BookingService;
+use Illuminate\Contracts\Foundation\Application;
 /**
  * Class BookingController
  * @package DTApi\Http\Controllers
@@ -24,9 +26,19 @@ class BookingController extends Controller
      * BookingController constructor.
      * @param BookingRepository $bookingRepository
      */
-    public function __construct(BookingRepository $bookingRepository)
+    protected $app;
+
+    public function __construct(BookingRepository $bookingRepository, Application $app)
     {
         $this->repository = $bookingRepository;
+        $this->app = $app;
+    }
+
+    protected $bookingService;
+
+    public function __construct(BookingService $bookingService)
+    {
+        $this->bookingService = $bookingService;
     }
 
     /**
@@ -40,7 +52,11 @@ class BookingController extends Controller
             $response = $this->repository->getUsersJobs($user_id);
 
         }
-        elseif($request->__authenticatedUser->user_type == env('ADMIN_ROLE_ID') || $request->__authenticatedUser->user_type == env('SUPERADMIN_ROLE_ID'))
+        // we can access admin_role_id as following
+        $adminRoleId = $this->app->config->get('constants.ADMIN_ROLE_ID');
+        $superAdminRoleId = $this->app->config->get('constants.SUPERADMIN_ROLE_ID');
+
+        elseif($request->__authenticatedUser->user_type == $adminRoleId || $request->__authenticatedUser->user_type == $superAdminRoleId)
         {
             $response = $this->repository->getAll($request);
         }
@@ -65,10 +81,10 @@ class BookingController extends Controller
      */
     public function store(Request $request)
     {
-        $data = $request->all();
+        $data = $request->validated(); // Use validated data from the request
 
         $response = $this->repository->store($request->__authenticatedUser, $data);
-
+    
         return response($response);
 
     }
@@ -124,9 +140,9 @@ class BookingController extends Controller
     {
         $data = $request->all();
         $user = $request->__authenticatedUser;
-
-        $response = $this->repository->acceptJob($data, $user);
-
+    
+        $response = $this->bookingService->acceptJob($data, $user);
+    
         return response($response);
     }
 
@@ -195,6 +211,12 @@ class BookingController extends Controller
     public function distanceFeed(Request $request)
     {
         $data = $request->all();
+
+        // Define these constants in a config file or Constants class
+        // const FLAGGED_YES = 'yes';
+        // const FLAGGED_NO = 'no';
+        // const FLAGGED_TRUE = 'true';
+        // const FLAGGED_FALSE = 'false';
 
         if (isset($data['distance']) && $data['distance'] != "") {
             $distance = $data['distance'];
